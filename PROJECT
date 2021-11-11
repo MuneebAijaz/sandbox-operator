@@ -1,0 +1,28 @@
+domain: sandboxop.com
+layout:
+- go.kubebuilder.io/v3
+plugins:
+  manifests.sdk.operatorframework.io/v2: {}
+  scorecard.sdk.operatorframework.io/v2: {}
+projectName: sandbox
+repo: github.com/MuneebAijaz/sandbox-operator
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: sandboxop.com
+  group: devtasks
+  kind: User
+  path: github.com/MuneebAijaz/sandbox-operator/api/v1
+  version: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: sandboxop.com
+  group: devtasks
+  kind: Sandbox
+  path: github.com/MuneebAijaz/sandbox-operator/api/v1
+  version: v1
+version: "3"

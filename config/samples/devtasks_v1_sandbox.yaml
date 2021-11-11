@@ -1,0 +1,5 @@
+apiVersion: devtasks.sandboxop.com/v1
+kind: Sandbox
+metadata:
+  name: sandbox-sample
+spec:
