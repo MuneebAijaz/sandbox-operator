@@ -19,12 +19,15 @@ package controllers
 import (
 	"context"
 
+	"strings"
+
+	devtasksv1 "github.com/MuneebAijaz/sandbox-operator/api/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	devtasksv1 "github.com/MuneebAijaz/sandbox-operator/api/v1"
 )
 
 // SandboxReconciler reconciles a Sandbox object
@@ -49,8 +52,23 @@ type SandboxReconciler struct {
 func (r *SandboxReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = log.FromContext(ctx)
 
-	log.Log.Info("program is here")
+	//log.Log.Info("program is here")
 
+	sandbox1 := &devtasksv1.Sandbox{}
+	err := r.Get(ctx, req.NamespacedName, sandbox1)
+	//log.Log.Info("sandbox instances", err)
+
+	//ns_name = fmt.Sprintf("%s%d",)
+	nsSpec := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: strings.ToLower(sandbox1.Spec.Name),
+		},
+	}
+
+	err = client.Client.Create(r.Client, ctx, nsSpec)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 	return ctrl.Result{}, nil
 }
 
