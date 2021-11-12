@@ -22,6 +22,10 @@ import (
 	"strings"
 
 	devtasksv1 "github.com/MuneebAijaz/sandbox-operator/api/v1"
+	"github.com/go-logr/logr"
+
+	//,finalizerUtil "github.com/stakater/operator-utils/util/finalizer"
+	reconcilerUtil "github.com/stakater/operator-utils/util/reconciler"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -33,6 +37,7 @@ import (
 // UserReconciler reconciles a User object
 type UserReconciler struct {
 	client.Client
+	Log    logr.Logger
 	Scheme *runtime.Scheme
 }
 
@@ -49,16 +54,17 @@ type UserReconciler struct {
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.10.0/pkg/reconcile
+
 func (r *UserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = log.FromContext(ctx)
 
 	user1 := &devtasksv1.User{}
 	err := r.Get(ctx, req.NamespacedName, user1)
 
+	log1 := r.Log.WithValues("get user", user1.Name)
+
 	if err != nil {
-		if errors.IsAlreadyExists(err) {
-			log.Log.Info("already exists")
-		}
+		log1.Info("User CR does not exists")
 	}
 
 	//log.Log.Info("throwing values", user1.Spec.Name)
@@ -84,28 +90,92 @@ func (r *UserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		err = r.Client.Create(ctx, sandbox1)
 		if err != nil {
 			if errors.IsAlreadyExists(err) {
-				log.Log.Info("already exists")
+				r.Log.Info("already exists")
 			}
 			return ctrl.Result{}, err
 		}
 
 	}
+	return ctrl.Result{}, nil
+}
 
-	//err = r.Get(ctx, req.NamespacedName, sandbox1)
-	//log.Log.Info("sandbox1", sandbox1)
+/*
 
-	if err != nil {
-		if errors.IsNotFound(err) {
-			// Request object not found, could have been deleted after reconcile request.
-			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
-			// Return and don't requeue
-			//return reconcilerUtil.DoNotRequeue()
-		}
-		// Error reading channel, requeue
-		//return reconcilerUtil.RequeueWithError(err)
+func (r *UserReconciler) finalizeChannel(req ctrl.Request, sandbox *devtasksv1.Sandbox) (ctrl.Result, error) {
+	if sandbox == nil {
+		return reconcilerUtil.DoNotRequeue()
 	}
 
-	return ctrl.Result{}, nil
+	sandboxName := sandbox.Name
+	log := r.Log.WithValues("sandbox name", sandboxName)
+
+	err := r.Client.Get(ctx,req.NamespacedName, sandbox)
+
+	if err != nil && err.Error() != "channel_not_found" && err.Error() != "already_archived" {
+		return reconcilerUtil.ManageError(r.Client, channel, err, false)
+	}
+
+	finalizerUtil.DeleteFinalizer(channel, channelFinalizer)
+	log.V(1).Info("Finalizer removed for channel")
+
+	err = r.Client.Update(context.Background(), channel)
+	if err != nil {
+		return reconcilerUtil.ManageError(r.Client, channel, err, false)
+	}
+
+	return reconcilerUtil.DoNotRequeue()
+}
+
+*/
+
+//err = r.Get(ctx, req.NamespacedName, sandbox1)
+//log.Log.Info("sandbox1", sandbox1)
+
+func (r *UserReconciler) updateUser(ctx context.Context, user *devtasksv1.User) (ctrl.Result, error) {
+
+	name := user.Spec.Name
+	log := r.Log.WithValues("channelID", name)
+
+	log.Info("Updating channel details")
+
+	/*
+
+		name := channel.Spec.Name
+		users := channel.Spec.Users
+		topic := channel.Spec.Topic
+		description := channel.Spec.Description
+
+		_, err := r.SlackService.RenameChannel(channelID, name)
+		if err != nil {
+			log.Error(err, "Error renaming channel")
+			return reconcilerUtil.ManageError(r.Client, channel, err, false)
+		}
+
+		_, err = r.SlackService.SetTopic(channelID, topic)
+		if err != nil {
+			log.Error(err, "Error setting channel topic")
+			return reconcilerUtil.ManageError(r.Client, channel, err, false)
+		}
+
+		_, err = r.SlackService.SetDescription(channelID, description)
+		if err != nil {
+			log.Error(err, "Error setting channel description")
+			return reconcilerUtil.ManageError(r.Client, channel, err, false)
+		}
+
+		err = r.SlackService.InviteUsers(channelID, users)
+		if err != nil {
+			log.Error(err, "Error inviting users to channel")
+			return reconcilerUtil.ManageError(r.Client, channel, err, false)
+		}
+
+		err = r.SlackService.RemoveUsers(channelID, users)
+		if err != nil {
+			log.Error(err, "Error removing users from the channel")
+			return reconcilerUtil.ManageError(r.Client, channel, err, false)
+		}
+	*/
+	return reconcilerUtil.ManageSuccess(r.Client, user)
 }
 
 // SetupWithManager sets up the controller with the Manager.

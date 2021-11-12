@@ -44,6 +44,11 @@ type UserSpec struct {
 type UserStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+	Name string `json:"name"`
+
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=5
+	SandBoxCount int `json:"sandBoxCount"`
 }
 
 //+kubebuilder:object:root=true

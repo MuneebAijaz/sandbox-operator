@@ -3,8 +3,10 @@ module github.com/MuneebAijaz/sandbox-operator
 go 1.16
 
 require (
+	github.com/go-logr/logr v0.4.0
 	github.com/onsi/ginkgo v1.16.4
 	github.com/onsi/gomega v1.15.0
+	github.com/stakater/operator-utils v0.1.14 // indirect
 	k8s.io/api v0.22.1
 	k8s.io/apimachinery v0.22.1
 	k8s.io/client-go v0.22.1
