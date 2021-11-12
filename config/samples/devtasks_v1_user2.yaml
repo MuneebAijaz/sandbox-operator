@@ -1,0 +1,9 @@
+apiVersion: devtasks.sandboxop.com/v1
+kind: User
+metadata:
+  name: user-sample2
+spec:
+  name: Muneeb2
+  orgName: stakater
+  deptName: QA
+  sandBoxCount: 3

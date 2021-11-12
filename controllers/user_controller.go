@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	devtasksv1 "github.com/MuneebAijaz/sandbox-operator/api/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -62,7 +63,7 @@ func (r *UserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 
 	//log.Log.Info("throwing values", user1.Spec.Name)
 
-	for i := 0; i < user1.Spec.SandBoxCount; i++ {
+	for i := 1; i <= user1.Spec.SandBoxCount; i++ {
 		sandbox1 := &devtasksv1.Sandbox{
 
 			TypeMeta: metav1.TypeMeta{
@@ -71,12 +72,12 @@ func (r *UserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 			},
 
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf("%s%d", "sandbox-user-", user1.Spec.SandBoxCount),
+				Name:      fmt.Sprintf("%s%s%s%d", "sb-", strings.ToLower(user1.Spec.Name), "-", i),
 				Namespace: req.Namespace,
 			},
 
 			Spec: devtasksv1.SandboxSpec{
-				Name: fmt.Sprintf("%s%s%s%d", "SB-", user1.Spec.Name, "-", user1.Spec.SandBoxCount),
+				Name: fmt.Sprintf("%s%s%s%d", "SB-", user1.Spec.Name, "-", i),
 				Type: "T1",
 			},
 		}

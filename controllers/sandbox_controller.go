@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 
+	"fmt"
 	"strings"
 
 	devtasksv1 "github.com/MuneebAijaz/sandbox-operator/api/v1"
@@ -59,9 +60,10 @@ func (r *SandboxReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	//log.Log.Info("sandbox instances", err)
 
 	//ns_name = fmt.Sprintf("%s%d",)
+
 	nsSpec := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: strings.ToLower(sandbox1.Spec.Name),
+			Name: fmt.Sprintf("%s%s", "ns-", strings.ToLower(sandbox1.Spec.Name)),
 		},
 	}
 
