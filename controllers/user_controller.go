@@ -23,8 +23,7 @@ import (
 
 	devtasksv1 "github.com/MuneebAijaz/sandbox-operator/api/v1"
 	"github.com/go-logr/logr"
-
-	//,finalizerUtil "github.com/stakater/operator-utils/util/finalizer"
+	finalizerUtil "github.com/stakater/operator-utils/util/finalizer"
 	reconcilerUtil "github.com/stakater/operator-utils/util/reconciler"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,6 +31,10 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+)
+
+var (
+	userFinalizer string = "http://tenantoperator.stakater.com/tenant"
 )
 
 // UserReconciler reconciles a User object
@@ -61,13 +64,48 @@ func (r *UserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	user1 := &devtasksv1.User{}
 	err := r.Get(ctx, req.NamespacedName, user1)
 
-	log1 := r.Log.WithValues("get user", user1.Name)
-
 	if err != nil {
-		log1.Info("User CR does not exists")
+		if errors.IsNotFound(err) {
+			// Request object not found, could have been deleted after reconcile request.
+			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
+			// Return and don't requeue
+			return reconcilerUtil.DoNotRequeue()
+		}
+		// Error reading channel, requeue
+		return reconcilerUtil.RequeueWithError(err)
 	}
 
+	/*
+		//&devtasksv1.User.GetDeletionTimestamp()
+		fmt.Println(user1.DeletionTimestamp)
+
+		if user1.GetDeletionTimestamp() != nil {
+			r.Log.Info("Deletion timestamp found for channel " + req.Name)
+			if finalizerUtil.HasFinalizer(user1, userFinalizer) {
+				return r.finalizeChannel(ctx, req, user1)
+			}
+			// Finalizer doesn't exist so clean up is already done
+			return reconcilerUtil.DoNotRequeue()
+		}
+
+		// Add finalizer if it doesn't exist
+		if !finalizerUtil.HasFinalizer(user1, userFinalizer) {
+			r.Log.Info("Adding finalizer for channel " + req.Name)
+
+			finalizerUtil.AddFinalizer(user1, userFinalizer)
+
+			err := r.Client.Update(ctx, user1)
+			if err != nil {
+				return reconcilerUtil.ManageError(r.Client, user1, err, true)
+			}
+		}
+
+	*/
 	//log.Log.Info("throwing values", user1.Spec.Name)
+
+	//namespaceName := req.NamespacedName
+
+	r.Log.Info("namespace", metav1.NamespaceAll)
 
 	for i := 1; i <= user1.Spec.SandBoxCount; i++ {
 		sandbox1 := &devtasksv1.Sandbox{
@@ -94,87 +132,68 @@ func (r *UserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 			}
 			return ctrl.Result{}, err
 		}
-
 	}
 	return ctrl.Result{}, nil
 }
 
-/*
-
-func (r *UserReconciler) finalizeChannel(req ctrl.Request, sandbox *devtasksv1.Sandbox) (ctrl.Result, error) {
-	if sandbox == nil {
+func (r *UserReconciler) finalizeChannel(ctx context.Context, req ctrl.Request, user1 *devtasksv1.User) (ctrl.Result, error) {
+	if user1 == nil {
 		return reconcilerUtil.DoNotRequeue()
 	}
 
-	sandboxName := sandbox.Name
-	log := r.Log.WithValues("sandbox name", sandboxName)
+	sandboxName := user1.Name
+	log := r.Log.WithValues("Name", sandboxName)
 
-	err := r.Client.Get(ctx,req.NamespacedName, sandbox)
+	err := r.Client.Get(ctx, req.NamespacedName, user1)
 
 	if err != nil && err.Error() != "channel_not_found" && err.Error() != "already_archived" {
-		return reconcilerUtil.ManageError(r.Client, channel, err, false)
+		return reconcilerUtil.ManageError(r.Client, user1, err, false)
 	}
 
-	finalizerUtil.DeleteFinalizer(channel, channelFinalizer)
+	finalizerUtil.DeleteFinalizer(user1, userFinalizer)
 	log.V(1).Info("Finalizer removed for channel")
 
-	err = r.Client.Update(context.Background(), channel)
+	err = r.Client.Update(context.Background(), user1)
 	if err != nil {
-		return reconcilerUtil.ManageError(r.Client, channel, err, false)
+		return reconcilerUtil.ManageError(r.Client, user1, err, false)
 	}
 
 	return reconcilerUtil.DoNotRequeue()
-}
 
-*/
+}
 
 //err = r.Get(ctx, req.NamespacedName, sandbox1)
 //log.Log.Info("sandbox1", sandbox1)
 
-func (r *UserReconciler) updateUser(ctx context.Context, user *devtasksv1.User) (ctrl.Result, error) {
+func (r *UserReconciler) updateUser(ctx context.Context, user *devtasksv1.User, req ctrl.Request) (ctrl.Result, error) {
 
 	name := user.Spec.Name
-	log := r.Log.WithValues("channelID", name)
+	//deptname := user.Spec.DeptName
+	//orgName := user.Spec.OrgName
+	//sandboxCount := user.Spec.SandBoxCount
 
-	log.Info("Updating channel details")
+	sandbox1 := &devtasksv1.Sandbox{}
+	err := r.Get(ctx, req.NamespacedName, sandbox1)
 
-	/*
+	sName := user.Status.Name
+	//sSBCount := user.Status.SandBoxCount
 
-		name := channel.Spec.Name
-		users := channel.Spec.Users
-		topic := channel.Spec.Topic
-		description := channel.Spec.Description
+	sbName := sandbox1.Spec.Name
+	sbUserName := strings.Split(sbName, "-")[1]
 
-		_, err := r.SlackService.RenameChannel(channelID, name)
-		if err != nil {
-			log.Error(err, "Error renaming channel")
-			return reconcilerUtil.ManageError(r.Client, channel, err, false)
+	if sName != name {
+		if sbUserName == sName {
+
 		}
+	}
 
-		_, err = r.SlackService.SetTopic(channelID, topic)
-		if err != nil {
-			log.Error(err, "Error setting channel topic")
-			return reconcilerUtil.ManageError(r.Client, channel, err, false)
-		}
+	if err == nil {
+		return ctrl.Result{}, err
+	}
 
-		_, err = r.SlackService.SetDescription(channelID, description)
-		if err != nil {
-			log.Error(err, "Error setting channel description")
-			return reconcilerUtil.ManageError(r.Client, channel, err, false)
-		}
+	log := r.Log.WithValues("name", name)
 
-		err = r.SlackService.InviteUsers(channelID, users)
-		if err != nil {
-			log.Error(err, "Error inviting users to channel")
-			return reconcilerUtil.ManageError(r.Client, channel, err, false)
-		}
-
-		err = r.SlackService.RemoveUsers(channelID, users)
-		if err != nil {
-			log.Error(err, "Error removing users from the channel")
-			return reconcilerUtil.ManageError(r.Client, channel, err, false)
-		}
-	*/
+	log.Info("Updating user details")
 	return reconcilerUtil.ManageSuccess(r.Client, user)
 }
 

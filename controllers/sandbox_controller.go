@@ -19,22 +19,25 @@ package controllers
 import (
 	"context"
 
-	"fmt"
-	"strings"
-
 	devtasksv1 "github.com/MuneebAijaz/sandbox-operator/api/v1"
-	//	finalizerUtil "https://github.com/stakater/operator-utils/tree/master/util/finalizer"
-	//	reconcilerUtil "github.com/stakater/operator-utils/util/reconciler"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"github.com/go-logr/logr"
+
+	finalizerUtil "github.com/stakater/operator-utils/util/finalizer"
+	reconcilerUtil "github.com/stakater/operator-utils/util/reconciler"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+const (
+	NamespaceFinalizer string = "tenantoperator.stakater.com/namespace"
+)
+
 // SandboxReconciler reconciles a Sandbox object
 type SandboxReconciler struct {
+	Log logr.Logger
 	client.Client
 	Scheme *runtime.Scheme
 }
@@ -58,21 +61,35 @@ func (r *SandboxReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	//log.Log.Info("program is here")
 
 	sandbox1 := &devtasksv1.Sandbox{}
-	err := r.Get(ctx, req.NamespacedName, sandbox1)
+
+	err := r.Get(context.TODO(), req.NamespacedName, sandbox1)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// Request object not found, could have been deleted after reconcile request.
+			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
+			// Return and don't requeue
+			r.Log.Info("Sandbox no longer exists")
+
+			return reconcilerUtil.DoNotRequeue()
+		}
+		// Error reading the object - requeue the request.
+		return reconcilerUtil.RequeueWithError(err)
+	}
+
+	if sandbox1.DeletionTimestamp != nil {
+		r.Log.Info("Deletion timestamp found for Namespace: " + req.Name)
+		if finalizerUtil.HasFinalizer(sandbox1, NamespaceFinalizer) {
+
+			return r.handleDelete(ctx, req, sandbox1, sandbox1.ObjectMeta)
+		}
+		// Finalizer doesn't exist so clean up is already done
+		return ctrl.Result{}, nil
+	}
+
 	//log.Log.Info("sandbox instances", err)
 
 	//ns_name = fmt.Sprintf("%s%d",)
 
-	nsSpec := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: fmt.Sprintf("%s%s", "ns-", strings.ToLower(sandbox1.Spec.Name)),
-		},
-	}
-
-	err = client.Client.Create(r.Client, ctx, nsSpec)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
 	return ctrl.Result{}, nil
 }
 
