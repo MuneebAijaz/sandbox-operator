@@ -23,8 +23,8 @@ import (
 	"strings"
 
 	devtasksv1 "github.com/MuneebAijaz/sandbox-operator/api/v1"
-	//	finalizerUtil "https://github.com/stakater/operator-utils/tree/master/util/finalizer"
-	//	reconcilerUtil "github.com/stakater/operator-utils/util/reconciler"
+	finalizerUtil "github.com/stakater/operator-utils/util/finalizer"
+	reconcilerUtil "github.com/stakater/operator-utils/util/reconciler"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -46,7 +46,7 @@ import (
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.10.0/pkg/reconcile
 
-func (r *SandboxReconciler) handleCreate(ctx context.Context, user *devtasksv1.User, req ctrl.Request, namespace *v1.Namespace) (ctrl.Result, error) {
+func (r *SandboxReconciler) handleCreate(ctx context.Context, req ctrl.Request, sandbox1 *devtasksv1.Sandbox) (ctrl.Result, error) {
 	//namespace1 := req.Namespace
 	//namespaces := corev1.NamespaceAll
 
@@ -60,18 +60,16 @@ func (r *SandboxReconciler) handleCreate(ctx context.Context, user *devtasksv1.U
 }
 
 func (r *SandboxReconciler) handleUpdate(req ctrl.Request, ctx context.Context, sandbox1 *devtasksv1.Sandbox) (ctrl.Result, error) {
-	//namespace1 := req.Namespace
-	//namespaces := corev1.NamespaceAll
 
-	user1 := &devtasksv1.User{}
-	err := r.Get(ctx, req.NamespacedName, user1)
+	sandbox1 = &devtasksv1.Sandbox{}
+	err := r.Get(ctx, req.NamespacedName, sandbox1)
 	if err != nil {
 		r.Log.Info("Can not get sandbox resource, doesnt exist")
 	}
 
 	ns := corev1.NamespaceList{}
 
-	userName := user1.Spec.Name
+	userName := sandbox1.Spec.Name
 
 	for _, b := range ns.Items {
 		if strings.Contains(b.Name, userName) {
@@ -83,10 +81,59 @@ func (r *SandboxReconciler) handleUpdate(req ctrl.Request, ctx context.Context, 
 			err = r.Client.Update(ctx, nsSpec)
 			if err != nil {
 				log.Log.WithValues("Can not update namespace")
-
 			}
 		}
 	}
 
 	return ctrl.Result{}, err
+}
+
+func (r *SandboxReconciler) finalizeSandbox(ctx context.Context, req ctrl.Request, sandbox1 *devtasksv1.Sandbox) (ctrl.Result, error) {
+	if sandbox1 == nil {
+		return reconcilerUtil.DoNotRequeue()
+	}
+
+	log := r.Log.WithValues("Name", sandbox1)
+
+	err := r.Client.Get(ctx, req.NamespacedName, sandbox1)
+
+	if err != nil {
+		return reconcilerUtil.ManageError(r.Client, sandbox1, err, false)
+	}
+
+	//sandbox1 := &devtasksv1.Sandbox{}
+	//uName := sandbox1.Spec.Name
+	//uSBCount := sandbox1.Spec.SandBoxCount
+
+	r.deleteNamespace(req, ctx, sandbox1)
+
+	finalizerUtil.DeleteFinalizer(sandbox1, userFinalizer)
+	log.V(1).Info("Finalizer removed for sandbox1")
+
+	err = r.Client.Update(context.Background(), sandbox1)
+	if err != nil {
+		return reconcilerUtil.ManageError(r.Client, sandbox1, err, false)
+	}
+	return reconcilerUtil.DoNotRequeue()
+}
+
+func (r *SandboxReconciler) updateSandbox(ctx context.Context, sandbox1 *devtasksv1.Sandbox, req ctrl.Request) (ctrl.Result, error) {
+
+	sandbox1 = &devtasksv1.Sandbox{}
+
+	if sandbox1.Spec.Name != sandbox1.Status.Name {
+		r.Log.Info("Can not change the user name")
+		sandbox1.Spec.Name = sandbox1.Status.Name
+		r.Client.Update(ctx, sandbox1)
+	}
+
+	sandbox1 = &devtasksv1.Sandbox{}
+	err := r.Get(ctx, req.NamespacedName, sandbox1)
+
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	r.Log.Info("Updating user details")
+	return reconcilerUtil.ManageSuccess(r.Client, sandbox1)
 }

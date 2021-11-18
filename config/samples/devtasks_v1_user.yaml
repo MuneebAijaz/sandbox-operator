@@ -3,7 +3,7 @@ kind: User
 metadata:
   name: user-sample
 spec:
-  name: Muneeb
+  name: muneeb
   orgName: stakater
   deptName: QA
-  sandBoxCount: 1
+  sandBoxCount: 3

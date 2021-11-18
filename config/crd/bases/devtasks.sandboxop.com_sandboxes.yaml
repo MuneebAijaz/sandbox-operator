@@ -14,7 +14,7 @@ spec:
     listKind: SandboxList
     plural: sandboxes
     singular: sandbox
-  scope: Namespaced
+  scope: Cluster
   versions:
   - name: v1
     schema:

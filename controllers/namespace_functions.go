@@ -27,6 +27,7 @@ import (
 	//	reconcilerUtil "github.com/stakater/operator-utils/util/reconciler"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -46,7 +47,7 @@ import (
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.10.0/pkg/reconcile
 
-func (r *SandboxReconciler) createNamespace(req ctrl.Request, ctx context.Context, sandbox1 *devtasksv1.Sandbox) (ctrl.Result, error) {
+func (r *SandboxReconciler) createNamespace(ctx context.Context, req ctrl.Request, sandbox1 *devtasksv1.Sandbox) (ctrl.Result, error) {
 
 	sandbox1 = &devtasksv1.Sandbox{}
 
@@ -55,7 +56,6 @@ func (r *SandboxReconciler) createNamespace(req ctrl.Request, ctx context.Contex
 			Name: fmt.Sprintf("%s%s", "ns-", strings.ToLower(sandbox1.Spec.Name)),
 		},
 	}
-
 	err := r.Client.Create(ctx, nsSpec)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -74,17 +74,57 @@ func (r *SandboxReconciler) updateNamespace(req ctrl.Request, ctx context.Contex
 		if strings.Contains(b.Name, sbName) {
 			nsSpec := &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: sbName,
+					Name: fmt.Sprintf("%s%s", "ns-", strings.ToLower(sbName)),
 				},
 			}
 			err := r.Client.Update(ctx, nsSpec)
 			if err != nil {
 				log.Log.WithValues("Can not update namespace")
 				return ctrl.Result{}, err
-
 			}
 		}
 	}
+	return ctrl.Result{}, nil
+}
+
+func (r *SandboxReconciler) deleteNamespace(req ctrl.Request, ctx context.Context, sandbox *devtasksv1.Sandbox) (ctrl.Result, error) {
+	//namespace1 := req.Namespace
+	//namespaces := corev1.NamespaceAll
+
+	ns := &corev1.Namespace{}
+	//sbName := sandbox.Spec.Name
+
+	nsName := r.Client.Get(ctx, types.NamespacedName{Name: "default"}, ns)
+	fmt.Println("logging nslist ", nsName)
+
+	//r.Log.Info("client list by client.get", nsName)
+
+	nslist := r.Client.List(ctx, &corev1.NamespaceList{})
+	fmt.Println("logging nslist ", nslist)
+	//r.Log.WithValues("logging nslist", "namespace")
+	//r.Log.Info("client list by client.list ", nslist)
+
+	/*
+			nsList, err := corev1.NamespaceList.Items
+		        Namespaces().
+		        List(context.Background(), metav1.ListOptions{})
+			nsName = &corev1.NamespaceList()
+			for _, b := range ns.Items {
+				if strings.Contains(b.Name, sbName) {
+					nsSpec := &corev1.Namespace{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: fmt.Sprintf("%s%s", "ns-", strings.ToLower(sbName)),
+						},
+					}
+					err := r.Client.Update(ctx, nsSpec)
+					if err != nil {
+						log.Log.WithValues("Can not update namespace")
+						return ctrl.Result{}, err
+
+					}
+				}
+			}
+	*/
 
 	return ctrl.Result{}, nil
 }

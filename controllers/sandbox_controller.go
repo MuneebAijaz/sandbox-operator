@@ -28,7 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const (
@@ -56,40 +55,55 @@ type SandboxReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.10.0/pkg/reconcile
 func (r *SandboxReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
-
-	//log.Log.Info("program is here")
+	log := r.Log.WithValues("sandbox", req.NamespacedName)
 
 	sandbox1 := &devtasksv1.Sandbox{}
-
-	err := r.Get(context.TODO(), req.NamespacedName, sandbox1)
+	err := r.Get(ctx, req.NamespacedName, sandbox1)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
-			r.Log.Info("Sandbox no longer exists")
-
 			return reconcilerUtil.DoNotRequeue()
 		}
-		// Error reading the object - requeue the request.
+		// Error reading sandbox1, requeue
 		return reconcilerUtil.RequeueWithError(err)
 	}
 
-	if sandbox1.DeletionTimestamp != nil {
-		r.Log.Info("Deletion timestamp found for Namespace: " + req.Name)
-		if finalizerUtil.HasFinalizer(sandbox1, NamespaceFinalizer) {
-
-			return r.handleDelete(ctx, req, sandbox1, sandbox1.ObjectMeta)
+	// sandbox1 is marked for deletion
+	if sandbox1.GetDeletionTimestamp() != nil {
+		log.Info("Deletion timestamp found for sandbox1 " + req.Name)
+		if finalizerUtil.HasFinalizer(sandbox1, userFinalizer) {
+			return r.finalizeSandbox(ctx, req, sandbox1)
 		}
 		// Finalizer doesn't exist so clean up is already done
-		return ctrl.Result{}, nil
+		return reconcilerUtil.DoNotRequeue()
 	}
 
-	//log.Log.Info("sandbox instances", err)
+	if sandbox1.Status.Name == "" {
+		sandbox1.Status.Name = sandbox1.Spec.Name
+		err = r.Client.Update(ctx, sandbox1)
+		if err != nil {
+			r.Log.Info("Unable to update user status")
+			return reconcilerUtil.ManageError(r.Client, sandbox1, err, false)
+		}
+		r.createNamespace(ctx, req, sandbox1)
 
-	//ns_name = fmt.Sprintf("%s%d",)
+	} else if sandbox1.Spec.Name != sandbox1.Status.Name {
+		r.updateSandbox(ctx, sandbox1, req)
+	}
 
+	// Add finalizer if it doesn't exist
+	if !finalizerUtil.HasFinalizer(sandbox1, userFinalizer) {
+		log.Info("Adding finalizer for sandbox1 " + req.Name)
+
+		finalizerUtil.AddFinalizer(sandbox1, userFinalizer)
+
+		err := r.Client.Update(ctx, sandbox1)
+		if err != nil {
+			return reconcilerUtil.ManageError(r.Client, sandbox1, err, true)
+		}
+	}
 	return ctrl.Result{}, nil
 }
 
