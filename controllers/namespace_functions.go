@@ -23,13 +23,16 @@ import (
 	"strings"
 
 	devtasksv1 "github.com/MuneebAijaz/sandbox-operator/api/v1"
+	reconcilerUtil "github.com/stakater/operator-utils/util/reconciler"
+
 	//	finalizerUtil "https://github.com/stakater/operator-utils/tree/master/util/finalizer"
 	//	reconcilerUtil "github.com/stakater/operator-utils/util/reconciler"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // SandboxReconciler reconciles a Sandbox object
@@ -49,82 +52,50 @@ import (
 
 func (r *SandboxReconciler) createNamespace(ctx context.Context, req ctrl.Request, sandbox1 *devtasksv1.Sandbox) (ctrl.Result, error) {
 
-	sandbox1 = &devtasksv1.Sandbox{}
+	err := r.Get(ctx, req.NamespacedName, sandbox1)
+	if err != nil {
+		r.Log.Info("can not get sandbox resource in createNamespace function")
+	}
 
 	nsSpec := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: fmt.Sprintf("%s%s", "ns-", strings.ToLower(sandbox1.Spec.Name)),
 		},
 	}
-	err := r.Client.Create(ctx, nsSpec)
+
+	log := r.Log.WithValues("Logging for namespace", nsSpec)
+
+	err = client.Client.Create(r.Client, ctx, nsSpec)
+
 	if err != nil {
-		return ctrl.Result{}, err
-	}
-	return ctrl.Result{}, nil
-}
-
-func (r *SandboxReconciler) updateNamespace(req ctrl.Request, ctx context.Context, sandbox *devtasksv1.Sandbox) (ctrl.Result, error) {
-	//namespace1 := req.Namespace
-	//namespaces := corev1.NamespaceAll
-
-	ns := corev1.NamespaceList{}
-	sbName := sandbox.Spec.Name
-
-	for _, b := range ns.Items {
-		if strings.Contains(b.Name, sbName) {
-			nsSpec := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: fmt.Sprintf("%s%s", "ns-", strings.ToLower(sbName)),
-				},
-			}
-			err := r.Client.Update(ctx, nsSpec)
-			if err != nil {
-				log.Log.WithValues("Can not update namespace")
-				return ctrl.Result{}, err
-			}
+		if errors.IsAlreadyExists(err) {
+			log.Info("already exists")
+		} else {
+			r.Log.Info("can not create new sandboxes")
 		}
+		return reconcilerUtil.ManageError(r.Client, sandbox1, err, true)
 	}
 	return ctrl.Result{}, nil
 }
 
-func (r *SandboxReconciler) deleteNamespace(req ctrl.Request, ctx context.Context, sandbox *devtasksv1.Sandbox) (ctrl.Result, error) {
-	//namespace1 := req.Namespace
-	//namespaces := corev1.NamespaceAll
+func (r *SandboxReconciler) deleteNamespace(req ctrl.Request, ctx context.Context, sandbox1 *devtasksv1.Sandbox) (ctrl.Result, error) {
 
 	ns := &corev1.Namespace{}
-	//sbName := sandbox.Spec.Name
 
-	nsName := r.Client.Get(ctx, types.NamespacedName{Name: "default"}, ns)
-	fmt.Println("logging nslist ", nsName)
+	log := r.Log.WithValues("Logging for namespace", ns)
 
-	//r.Log.Info("client list by client.get", nsName)
+	err := r.Client.Get(ctx, types.NamespacedName{Name: fmt.Sprintf("%s%s", "ns-", strings.ToLower(sandbox1.Spec.Name))}, ns)
+	if err != nil {
+		log.Info("unable to get the specified namespace in deleteNamespace function")
+		return ctrl.Result{}, err
+	}
 
-	nslist := r.Client.List(ctx, &corev1.NamespaceList{})
-	fmt.Println("logging nslist ", nslist)
-	//r.Log.WithValues("logging nslist", "namespace")
-	//r.Log.Info("client list by client.list ", nslist)
+	log.Info("getting namespace ns")
 
-	/*
-			nsList, err := corev1.NamespaceList.Items
-		        Namespaces().
-		        List(context.Background(), metav1.ListOptions{})
-			nsName = &corev1.NamespaceList()
-			for _, b := range ns.Items {
-				if strings.Contains(b.Name, sbName) {
-					nsSpec := &corev1.Namespace{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: fmt.Sprintf("%s%s", "ns-", strings.ToLower(sbName)),
-						},
-					}
-					err := r.Client.Update(ctx, nsSpec)
-					if err != nil {
-						log.Log.WithValues("Can not update namespace")
-						return ctrl.Result{}, err
-
-					}
-				}
-			}
-	*/
-
+	err = r.Client.Delete(ctx, ns)
+	if err != nil {
+		log.Info("unable to delete the specified namespace in deleteNamespace function")
+		return ctrl.Result{}, err
+	}
 	return ctrl.Result{}, nil
 }

@@ -31,7 +31,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	//"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var (
@@ -85,6 +84,7 @@ func (r *UserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 			return reconcilerUtil.ManageError(r.Client, user1, err, false)
 		}
 		r.createSandboxes(ctx, user1)
+
 	} else if user1.Spec.Name != user1.Status.Name || user1.Spec.SandBoxCount != user1.Status.SandBoxCount {
 		r.Log.Info("inside the update user function")
 		r.updateUser(ctx, user1, req)
@@ -139,6 +139,8 @@ func (r *UserReconciler) handleDelete(ctx context.Context, user1 *devtasksv1.Use
 
 func (r *UserReconciler) createSandboxes(ctx context.Context, user1 *devtasksv1.User) (ctrl.Result, error) {
 
+	r.Log.Info("inside the createSandboxes func")
+
 	for i := 1; i <= user1.Spec.SandBoxCount; i++ {
 		sandbox1 := &devtasksv1.Sandbox{
 
@@ -162,6 +164,8 @@ func (r *UserReconciler) createSandboxes(ctx context.Context, user1 *devtasksv1.
 		if err != nil {
 			if errors.IsAlreadyExists(err) {
 				r.Log.Info("already exists")
+			} else {
+				r.Log.Info("can not create new sandboxes")
 			}
 			return reconcilerUtil.ManageError(r.Client, sandbox1, err, true)
 		}

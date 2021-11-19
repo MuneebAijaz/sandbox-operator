@@ -21,7 +21,6 @@ import (
 
 	devtasksv1 "github.com/MuneebAijaz/sandbox-operator/api/v1"
 	"github.com/go-logr/logr"
-
 	finalizerUtil "github.com/stakater/operator-utils/util/finalizer"
 	reconcilerUtil "github.com/stakater/operator-utils/util/reconciler"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -82,7 +81,7 @@ func (r *SandboxReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	if sandbox1.Status.Name == "" {
 		sandbox1.Status.Name = sandbox1.Spec.Name
-		err = r.Client.Update(ctx, sandbox1)
+		err = r.Status().Update(ctx, sandbox1)
 		if err != nil {
 			r.Log.Info("Unable to update user status")
 			return reconcilerUtil.ManageError(r.Client, sandbox1, err, false)
