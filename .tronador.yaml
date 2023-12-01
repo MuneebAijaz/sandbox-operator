@@ -1,0 +1,11 @@
+application:
+  chart_path: deploy
+  namespaceLabels:
+    stakater.com/kind: pr
+    stakater.com/tenant: gabbar
+  value_overrides:
+    application:
+      deployment:
+        image:
+          repository: {{APPLICATION_IMAGE_NAME}}
+          tag: {{APPLICATION_IMAGE_TAG}}
